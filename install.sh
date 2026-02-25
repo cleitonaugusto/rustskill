@@ -1,35 +1,42 @@
 #!/bin/bash
 set -e
 
-# Estética de Vanguarda
-GREEN='\033[0;32m'
+# Cores para o terminal
 BLUE='\033[0;34m'
-BOLD='\033[1m'
+GREEN='\033[0;32m'
+RED='\033[0;31m'
 NC='\033[0m'
 
-echo -e "${BLUE}${BOLD}🚀 RustSkill Installer${NC}"
-echo -e "${BLUE}-----------------------------------${NC}"
+echo -e "${BLUE}🚀 Instalando RustSkill (Cleiton Augusto Edition)...${NC}"
 
-# 1. Detectar Versão (Pega a última tag do seu repo)
-REPO="cleitonaugusto/rustskill"
-VERSION=$(curl -s "https://api.github.com/repos/$REPO/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+# 1. Detectar SO e Arquitetura
+OS_TYPE="$(uname -s)"
+ARCH_TYPE="$(uname -m)"
+BINARY_NAME=""
 
-if [ -z "$VERSION" ]; then
-    VERSION="v0.1.1" # Fallback caso a API do GitHub falhe
+if [ "$OS_TYPE" = "Linux" ]; then
+    BINARY_NAME="rustskill-linux-x86_64"
+elif [ "$OS_TYPE" = "Darwin" ]; then
+    BINARY_NAME="rustskill-macos-arm64"
+else
+    echo -e "${RED}❌ SO não suportado automaticamente pelo script. Baixe o .exe no site.${NC}"
+    exit 1
 fi
 
-# 2. Definir URL do Binário (Baseado no nome que o seu GitHub Action gera)
-URL="https://github.com/$REPO/releases/download/$VERSION/rustskill-linux-x86_64"
+# 2. Pegar a versão mais recente via GitHub API
+REPO="cleitonaugusto/rustskill"
+LATEST_TAG=$(curl -s "https://api.github.com/repos/$REPO/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
 
-echo -e "📦 Baixando RustSkill ${GREEN}$VERSION${NC}..."
+if [ -z "$LATEST_TAG" ]; then LATEST_TAG="v0.1.2"; fi
 
-# 3. Download e Instalação
-curl -L -o rustskill_temp $URL
+# 3. Download
+URL="https://github.com/$REPO/releases/download/$LATEST_TAG/$BINARY_NAME"
+echo -e "📥 Baixando $BINARY_NAME de $LATEST_TAG..."
+curl -L -o rustskill_temp "$URL"
 chmod +x rustskill_temp
 
-# Pergunta educada para mover para o PATH
-echo -e "🔧 Instalando em /usr/local/bin (pode solicitar sua senha)..."
+# 4. Mover para o PATH
+echo -e "🔧 Movendo para /usr/local/bin..."
 sudo mv rustskill_temp /usr/local/bin/rustskill
 
-echo -e "\n${GREEN}${BOLD}✅ Instalação Concluída!${NC}"
-echo -e "Agora você pode rodar: ${BLUE}rustskill list${NC}\n"
+echo -e "${GREEN}✅ RustSkill instalado com sucesso! Digite 'rustskill list' para começar.${NC}"
