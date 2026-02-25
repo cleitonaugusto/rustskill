@@ -43,7 +43,7 @@ async fn main() -> anyhow::Result<()> {
     match &cli.command {
         Commands::List => {
             println!("{} Consultando o Marketplace Global...", style("🔍").yellow());
-            let registry = downloader::fetch_registry().await?; // Agora retorna Vec<SkillEntry>
+            let registry = downloader::fetch_registry().await?;
 
             let mut table = Table::new();
             table.set_header(vec!["Categoria", "Skill Alias (ID)", "Acesso", "Status"]);
@@ -57,7 +57,7 @@ async fn main() -> anyhow::Result<()> {
 
                 table.add_row(vec![
                     style(skill.category).magenta().to_string(),
-                    style(skill.id).cyan().bold().to_string(), // Usando o .id da nova lista
+                    style(skill.id).cyan().bold().to_string(),
                     access_tag,
                     style("✔ Disponível").green().to_string()
                 ]);
