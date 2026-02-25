@@ -105,20 +105,21 @@ async fn main() -> anyhow::Result<()> {
         }
 
         Commands::Upgrade => {
-            println!("{} Buscando atualizações...", style("🔄").cyan());
+            println!("{} Iniciando atualização para a vanguarda...", style("🔄").cyan());
+
             let status = self_update::backends::github::Update::configure()
                 .repo_owner("cleitonaugusto")
                 .repo_name("rustskill")
                 .bin_name("rustskill")
                 .show_download_progress(true)
                 .current_version(env!("CARGO_PKG_VERSION"))
-                .build().map_err(|e| anyhow::anyhow!(e))?
-                .update().map_err(|e| anyhow::anyhow!(e))?;
+                .build()?
+                .update()?;
 
             if status.updated() {
-                println!("{} Atualizado para {}!", style("✔").green(), status.version());
+                println!("{} Atualizado para {}! O futuro chegou.", style("✔").green(), status.version());
             } else {
-                println!("{} Você está na última versão.", style("✔").green());
+                println!("{} Você já está usando a tecnologia mais recente.", style("✔").green());
             }
         }
     }

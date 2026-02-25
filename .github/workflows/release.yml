@@ -1,30 +1,42 @@
-name: Release
+name: Release Management
+
 on:
   push:
     tags:
-      - 'v*' # Dispara quando você criar uma tag, ex: git tag v0.1.1
+      - 'v*' # Dispara em v0.1.2, v1.0.0, etc.
+
+permissions:
+  contents: write
 
 jobs:
-  publish:
-    name: Binary for ${{ matrix.os }}
+  build:
+    name: Build for ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false # Se um SO falhar, não cancela os outros
       matrix:
         include:
           - os: ubuntu-latest
             artifact_name: rustskill
             asset_name: rustskill-linux-x86_64
+          - os: windows-latest
+            artifact_name: rustskill.exe
+            asset_name: rustskill-windows-x86_64.exe
+          - os: macos-latest
+            artifact_name: rustskill
+            asset_name: rustskill-macos-arm64
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      - name: Install Rust
+      - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Build
+      - name: Build Release
         run: cargo build --release --locked
 
-      - name: Upload binaries to release
+      - name: Upload Binary to Release
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
