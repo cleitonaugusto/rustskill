@@ -3,18 +3,36 @@
 
 O **RustSkill** é um marketplace de inteligência para o Cursor Editor. Ele injeta regras de especialistas (`.cursorrules`) diretamente no seu projeto, garantindo performance, segurança e arquitetura limpa desde o primeiro commit.
 
+---
+
+## 🚀 Por que usar o RustSkill?
+Não perca tempo configurando prompts manualmente para cada projeto. Com o RustSkill, você traz a experiência de centenas de desenvolvedores sêniores para dentro do seu editor em segundos.
 
 
-## 🚀 Funcionalidades
-- **Marketplace Global:** Acesso instantâneo a regras de Rust, SQL, React e mais.
-- **Injeção Atômica:** Instala configurações sem quebrar seu workflow.
-- **Camada Premium:** Suporte a skills exclusivas via Token de Acesso.
-- **Performance:** Desenvolvido em Rust para velocidade extrema e baixo consumo.
 
-## 📦 Instalação (Manual)
-Certifique-se de ter o Rust instalado e clone este repositório:
+### ✨ Funcionalidades
+- **Marketplace Global:** Consulta em tempo real ao catálogo oficial de skills.
+- **Injeção Atômica:** Instala configurações `.cursorrules` sem quebrar seu workflow.
+- **Camada Premium:** Suporte a skills avançadas via Token de Acesso.
+- **Ultra Fast:** Desenvolvido em Rust para execução instantânea.
+
+---
+
+## 📦 Instalação
+Para instalar o RustSkill CLI localmente, certifique-se de ter o [Rust](https://www.rust-lang.org/) instalado e execute:
+
 ```bash
+# Clone o repositório
 git clone [https://github.com/cleitonaugusto/rustskill.git](https://github.com/cleitonaugusto/rustskill.git)
+
+# Entre na pasta
 cd rustskill
+
+# Instale globalmente no seu sistema
 cargo install --path .
-🛠️ Comandos PrincipaisComandoDescriçãorustskill listConsulta o Marketplace Global de inteligência.rustskill add <id>Injeta uma skill no diretório atual (ex: rust/clean-code).rustskill login <token>Autentica sua conta para acessar skills Premium.rustskill info <id>Detalhes técnicos e categoria da skill.rustskill upgradeAtualiza o CLI para a última versão disponível.💎 Acesso PremiumAlgumas skills de arquitetura e segurança avançada exigem um token.Para obter o seu, entre em contato através do nosso portal oficial.Design by Cleiton Augusto | Built with Rust 🦀
+🛠️ Comandos de mestreComandoDescriçãorustskill listLista todas as skills disponíveis no Marketplace.rustskill add <alias>Injeta a skill no projeto atual (ex: rust/clean-code).rustskill login <token>Autentica para liberar acesso às skills 💎 Premium.rustskill info <alias>Exibe detalhes e regras de uma skill específica.🎯 Exemplo de UsoBash# 1. Veja o que temos hoje
+rustskill list
+
+# 2. Injete regras de Clean Architecture no seu projeto
+rustskill add arch/clean-architecture
+💎 Acesso PremiumAs skills marcadas com 💎 no marketplace contêm lógicas de arquitetura e segurança de nível Enterprise. Para obter seu token de acesso, entre em contato com o desenvolvedor.🤝 ContribuiçõesO ecossistema é alimentado pelo RustSkill Registry. Sinta-se à vontade para sugerir novas regras!Desenvolvido com ❤️ por Cleiton Augusto
