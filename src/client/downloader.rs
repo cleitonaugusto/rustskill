@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
+use std::time::{SystemTime, UNIX_EPOCH};
 
-/// 1. Estrutura que representa o catálogo (Registry) - Nova versão em Lista
+/// 1. Estrutura que representa o catálogo (Registry) -
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct SkillEntry {
     pub id: String,        // O ID único (ex: rust/clean-code)
@@ -17,12 +18,20 @@ pub struct SkillPayload {
     pub file_name: String,
 }
 
-// URL do Registry com cache bust para atualizações em tempo real
-const REGISTRY_URL: &str = "https://raw.githubusercontent.com/cleitonaugusto/rustskill-registry/main/registry.json?v=1";
+// URL base sem o parâmetro de cache (será adicionado dinamicamente)
+const BASE_REGISTRY_URL: &str = "https://raw.githubusercontent.com/cleitonaugusto/rustskill-registry/main/registry.json";
 
 /// BUSCA O CATÁLOGO COMPLETO (Usado pelo comando List e Add)
 pub async fn fetch_registry() -> anyhow::Result<Vec<SkillEntry>> {
-    let response = reqwest::get(REGISTRY_URL).await?;
+    // Gerar um timestamp para "furar" o cache do GitHub de forma profissional
+    let ts = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+
+    let url_with_cache_bust = format!("{}?t={}", BASE_REGISTRY_URL, ts);
+
+    let response = reqwest::get(&url_with_cache_bust).await?;
 
     if !response.status().is_success() {
         anyhow::bail!(
@@ -31,8 +40,10 @@ pub async fn fetch_registry() -> anyhow::Result<Vec<SkillEntry>> {
         );
     }
 
+    let registry = response.json::<Vec<SkillEntry>>().await.map_err(|e| {
+        anyhow::anyhow!("Erro ao processar o catálogo. Certifique-se de que o registro no GitHub está no formato de LISTA []. Detalhe: {}", e)
+    })?;
 
-    let registry = response.json::<Vec<SkillEntry>>().await?;
     Ok(registry)
 }
 
@@ -44,7 +55,7 @@ pub async fn fetch_skill(input: &str) -> anyhow::Result<SkillPayload> {
     let target_url = if input.starts_with("http") {
         input.to_string()
     } else {
-
+        // Busca na lista de entradas pelo ID (alias)
         let registry = fetch_registry().await?;
         let entry = registry.iter().find(|s| s.id == input)
             .ok_or_else(|| anyhow::anyhow!(
@@ -55,8 +66,11 @@ pub async fn fetch_skill(input: &str) -> anyhow::Result<SkillPayload> {
         entry.url.clone()
     };
 
-    // Download do conteúdo (Payload)
-    let response = client.get(&target_url).send().await?;
+    // Download do conteúdo (Payload) da skill
+    let ts = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
+    let skill_url = format!("{}?t={}", target_url, ts);
+
+    let response = client.get(&skill_url).send().await?;
 
     if !response.status().is_success() {
         anyhow::bail!("❌ Erro ao baixar a skill: O link no catálogo parece estar offline ou quebrado.");
