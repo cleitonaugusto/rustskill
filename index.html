@@ -9,35 +9,71 @@
     <style>
         body { background-color: #0f172a; color: #f8fafc; }
         .gradient-text { background: linear-gradient(90deg, #38bdf8, #818cf8); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .terminal-container { word-break: break-all; }
     </style>
 </head>
 <body class="font-sans antialiased">
 
-    <header class="max-w-6xl mx-auto px-6 py-20 text-center">
-        <h1 class="text-5xl md:text-7xl font-extrabold mb-6">
-            O Cérebro Sênior para o <span class="gradient-text">Seu Cursor</span>
-        </h1>
-        <p class="text-xl text-slate-400 mb-10 max-w-2xl mx-auto">
-            Injete inteligência, padrões de arquitetura e regras de segurança instantaneamente. Criado para desenvolvedores de vanguarda.
-        </p>
+<header class="max-w-6xl mx-auto px-4 py-16 md:py-24 text-center">
+    <h1 class="text-4xl md:text-7xl font-extrabold mb-6 leading-tight">
+        O Cérebro Sênior para o <br class="hidden md:block"> <span class="gradient-text">Seu Cursor</span>
+    </h1>
+    <p class="text-lg md:text-xl text-slate-400 mb-10 max-w-2xl mx-auto">
+        Injete inteligência, padrões de arquitetura e regras de segurança instantaneamente. Criado por especialistas para desenvolvedores de vanguarda.
+    </p>
 
-        <div class="bg-black border border-slate-700 rounded-lg p-4 inline-block shadow-2xl mb-12">
-            <code class="text-blue-400 text-sm md:text-base">
-                curl -fsSL https://raw.githubusercontent.com/cleitonaugusto/rustskill/main/install.sh | bash
-            </code>
+    <div class="bg-black border border-slate-700 rounded-xl p-4 md:p-6 inline-block shadow-2xl mb-12 max-w-full overflow-hidden">
+        <div class="flex items-center space-x-2 mb-3">
+            <div class="w-3 h-3 rounded-full bg-red-500"></div>
+            <div class="w-3 h-3 rounded-full bg-yellow-500"></div>
+            <div class="w-3 h-3 rounded-full bg-green-500"></div>
         </div>
-    </header>
+        <code class="text-blue-400 text-xs md:text-base block terminal-container">
+            curl -fsSL https://raw.githubusercontent.com/cleitonaugusto/rustskill/main/install.sh | bash
+        </code>
+    </div>
+</header>
 
-    <footer class="border-t border-slate-800 mt-20 py-10 text-center">
-        <p class="text-slate-500 text-sm">
-            © 2024 RustSkill Platform. Projetado e desenvolvido por 
-            <span class="text-slate-300 font-semibold italic">Cleiton Augusto Correa Bezerra</span>.
-        </p>
-        <div class="mt-4 flex justify-center space-x-6">
-            <a href="https://github.com/cleitonaugusto" class="text-slate-400 hover:text-white transition">GitHub</a>
-            <a href="#" class="text-slate-400 hover:text-white transition">Marketplace</a>
+<section class="max-w-6xl mx-auto px-6 py-12">
+    <div class="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+        <div class="p-8 rounded-2xl border border-slate-800 bg-slate-900/50">
+            <h3 class="text-xl font-bold mb-2">Comunidade</h3>
+            <p class="text-4xl font-bold mb-6 italic">Grátis</p>
+            <ul class="text-slate-400 space-y-3 mb-8 text-sm">
+                <li>✔ Skills Essenciais</li>
+                <li>✔ Marketplace Global</li>
+                <li>✔ Atualizações via CLI</li>
+            </ul>
+            <button class="w-full py-3 rounded-lg bg-slate-800 font-semibold cursor-default">Versão Atual</button>
         </div>
-    </footer>
+        <div class="p-8 rounded-2xl border-2 border-blue-500 bg-blue-900/10 relative overflow-hidden">
+            <div class="absolute top-0 right-0 bg-blue-500 text-white text-[10px] px-3 py-1 font-bold uppercase">Upgrade</div>
+            <h3 class="text-xl font-bold mb-2 text-blue-400 font-mono">Expert Premium</h3>
+            <p class="text-4xl font-bold mb-6 text-white">R$ 49 <span class="text-sm font-normal text-slate-500">/mês</span></p>
+            <ul class="text-slate-300 space-y-3 mb-8 text-sm font-medium">
+                <li>✔ Skills de Arquitetura Sênior</li>
+                <li>✔ Auditoria OWASP Top 10</li>
+                <li>✔ Suporte Prioritário do Criador</li>
+            </ul>
+            <a href="https://wa.me/SEUNUMERO" target="_blank" class="block w-full text-center py-3 rounded-lg bg-blue-500 text-white font-bold hover:bg-blue-600 transition shadow-lg shadow-blue-500/20">Assinar Agora</a>
+        </div>
+    </div>
+</section>
+
+<footer class="border-t border-slate-800 mt-20 py-12 text-center px-6">
+    <p class="text-slate-500 text-sm mb-6">
+        © 2024 RustSkill Platform. <br class="md:hidden"> Projetado e desenvolvido por <br>
+        <span class="text-white font-bold text-base block mt-1 uppercase tracking-widest text-slate-200">Cleiton Augusto Correa Bezerra</span>
+    </p>
+    <div class="flex justify-center space-x-8">
+        <a href="https://github.com/cleitonaugusto" target="_blank" class="text-slate-400 hover:text-white transition flex items-center gap-2">
+            <span>GitHub</span>
+        </a>
+        <a href="https://linkedin.com/in/cleiton-augusto-b619435b" target="_blank" class="text-slate-400 hover:text-blue-400 transition flex items-center gap-2">
+            <span>LinkedIn</span>
+        </a>
+    </div>
+</footer>
 
 </body>
 </html>
