@@ -3,20 +3,20 @@ name: Release Management
 on:
   push:
     tags:
-      - 'v*' # Dispara em v0.1.2, v1.0.0, etc.
+      - 'v*' # Dispara em v0.1.2, v0.1.6, v1.0.0, etc.
 
 permissions:
-  contents: write
+  contents: write # Essencial para criar a Release e subir os binários
 
 jobs:
   build:
     name: Build for ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
-      fail-fast: false # Se um SO falhar, não cancela os outros
+      fail-fast: false # Se um SO falhar (ex: Mac), ele ainda termina o Windows e Linux
       matrix:
         include:
-          - os: ubuntu-latest
+          - os: ubuntu-20.04  # <--- Compatibilidade garantida para Linux mais antigos
             artifact_name: rustskill
             asset_name: rustskill-linux-x86_64
           - os: windows-latest
