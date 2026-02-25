@@ -1,4 +1,5 @@
 # 🦀 RustSkill CLI
+
 > **Transforme seu Cursor em um Desenvolvedor Sênior com um único comando.**
 
 O **RustSkill** é um marketplace de inteligência para o Cursor Editor. Ele injeta regras de especialistas (`.cursorrules`) diretamente no seu projeto, garantindo performance, segurança e arquitetura limpa desde o primeiro commit.
@@ -6,9 +7,11 @@ O **RustSkill** é um marketplace de inteligência para o Cursor Editor. Ele inj
 ---
 
 ## 🚀 Por que usar o RustSkill?
+
 Não perca tempo configurando prompts manualmente para cada projeto. Com o RustSkill, você traz a experiência de centenas de desenvolvedores sêniores para dentro do seu editor em segundos.
 
 ### ✨ Funcionalidades
+
 - **Marketplace Global:** Consulta em tempo real ao catálogo oficial de skills.
 - **Injeção Atômica:** Instala configurações `.cursorrules` sem quebrar seu workflow.
 - **Camada Premium:** Suporte a skills avançadas via Token de Acesso.
