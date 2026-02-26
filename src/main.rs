@@ -3,15 +3,15 @@ use console::style;
 use comfy_table::Table;
 use indicatif::{ProgressBar, ProgressStyle};
 use std::time::Duration;
+use std::collections::HashSet;
 use serde::{Serialize, Deserialize};
+use walkdir::WalkDir;
 
-// Certifique-se de que no seu module 'downloader' as Structs
-// correspondam a essa nova estrutura de Lista.
 use rustskill::client::downloader;
 use rustskill::core::installer;
 
 #[derive(Parser)]
-#[command(name = "rustskill", version = env!("CARGO_PKG_VERSION"), about = "AI Skills Platform")]
+#[command(name = "rustskill", version = env!("CARGO_PKG_VERSION"), about = "AI Skills Platform - Governança de Código com IA")]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -28,6 +28,8 @@ enum Commands {
     List,
     /// Instala uma skill usando o Alias (ex: rust/clean-code)
     Add { alias: String },
+    /// Escaneia o projeto e sugere as skills de vanguarda necessárias
+    Audit,
     /// Atualiza o rustskill para a versão mais recente
     Upgrade,
     /// Login com Token Premium para acessar skills restritas
@@ -66,13 +68,11 @@ async fn main() -> anyhow::Result<()> {
         }
 
         Commands::Add { alias } => {
-            // 1. Verificar Registry para encontrar a URL pelo Alias
             let registry = downloader::fetch_registry().await?;
             let skill_entry = registry.iter().find(|s| &s.id == alias);
 
             match skill_entry {
                 Some(entry) => {
-                    // 2. Verificação de Token para Skills Premium
                     if entry.premium {
                         let cfg: Config = confy::load("rustskill", None)?;
                         if cfg.token.is_none() {
@@ -84,7 +84,6 @@ async fn main() -> anyhow::Result<()> {
                         }
                     }
 
-                    // 3. Download e Instalação
                     let pb = ProgressBar::new_spinner();
                     pb.set_style(ProgressStyle::default_spinner().template("{spinner:.blue} {msg}")?);
                     pb.set_message(format!("Injetando inteligência: {}...", style(alias).cyan()));
@@ -95,7 +94,6 @@ async fn main() -> anyhow::Result<()> {
 
                     installer::install_to_cursor(&skill_content.instruction, &skill_content.file_name, &skill_content.name)?;
 
-                    // Telemetria (opcional/silenciosa)
                     let _ = track_telemetry(&skill_content.name).await;
 
                     println!("{} Skill {} instalada com sucesso!", style("✔").green(), style(&skill_content.name).bold());
@@ -106,6 +104,50 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
+        Commands::Audit => {
+            println!("{} Analisando DNA do projeto (varredura profunda)...", style("🧬").yellow());
+
+            // 1. Scan de extensões RECURSIVO
+            let mut extensions = HashSet::new();
+            for entry in WalkDir::new(".").into_iter().filter_map(|e| e.ok()) {
+                if let Some(ext) = entry.path().extension().and_then(|s| s.to_str()) {
+                    extensions.insert(ext.to_lowercase());
+                }
+            }
+            println!("{} Extensões detectadas no projeto: {:?}", style("🔍").dim(), extensions);
+
+            // 2. Buscar Registry
+            let registry = downloader::fetch_registry().await?;
+            let mut table = Table::new();
+            table.set_header(vec!["Categoria", "Skill Recomendada", "Status"]);
+
+            let mut count = 0;
+            for skill in registry {
+                // 3. Lógica de recomendação DINÂMICA baseada em 'triggers'
+                let is_needed = match &skill.triggers {
+                    Some(triggers) => triggers.iter().any(|t| extensions.contains(t.as_str())),
+                    None => false, // Se a skill não tem triggers, não é recomendada automaticamente
+                };
+
+                if is_needed {
+                    count += 1;
+                    table.add_row(vec![
+                        style(skill.category).magenta().to_string(),
+                        style(skill.id).cyan().bold().to_string(),
+                        style("❌ Ausente").red().to_string()
+                    ]);
+                }
+            }
+
+            if count > 0 {
+                println!("\n{table}");
+                println!("\n{} Foram sugeridas {} skills para elevar o nível deste projeto.", style("💡").blue(), count);
+                println!("Use {} para instalar qualquer uma delas.", style("rustskill add <alias>").green());
+            } else {
+                println!("{} Nenhuma skill adicional recomendada para o contexto atual.", style("✔").green());
+            }
+        }
+
         Commands::Info { alias } => {
             let registry = downloader::fetch_registry().await?;
             if let Some(skill) = registry.iter().find(|s| &s.id == alias) {
@@ -113,8 +155,6 @@ async fn main() -> anyhow::Result<()> {
                 println!("{} Categoria: {}", style("📁").magenta(), skill.category);
                 println!("{} Acesso: {}", style("🎫").blue(), if skill.premium { "💎 Premium" } else { "Grátis" });
                 println!("{} Endpoint: {}\n", style("🔗").dim(), style(&skill.url).underlined());
-                println!("{}", style("Para instalar, rode:").dim());
-                println!("  rustskill add {}\n", style(alias).green());
             } else {
                 println!("{} Skill '{}' não encontrada.", style("❌").red(), alias);
             }
@@ -123,12 +163,11 @@ async fn main() -> anyhow::Result<()> {
         Commands::Login { token } => {
             let cfg = Config { token: Some(token.clone()) };
             confy::store("rustskill", None, cfg)?;
-            println!("{} Token autenticado com sucesso! Acesso Premium liberado.", style("🔑").green());
+            println!("{} Token autenticado! Acesso Premium liberado.", style("🔑").green());
         }
 
         Commands::Upgrade => {
-            println!("{} Buscando novas tecnologias...", style("🔄").cyan());
-            // Lógica de self-update mantida...
+            println!("{} Buscando vanguarda...", style("🔄").cyan());
             let status = self_update::backends::github::Update::configure()
                 .repo_owner("cleitonaugusto")
                 .repo_name("rustskill")
@@ -139,9 +178,9 @@ async fn main() -> anyhow::Result<()> {
                 .update()?;
 
             if status.updated() {
-                println!("{} Atualizado para {}! O futuro chegou.", style("✔").green(), status.version());
+                println!("{} Atualizado para {}!", style("✔").green(), status.version());
             } else {
-                println!("{} Você já está na vanguarda da versão {}.", style("✔").green(), env!("CARGO_PKG_VERSION"));
+                println!("{} Versão {} já é a mais recente.", style("✔").green(), env!("CARGO_PKG_VERSION"));
             }
         }
     }

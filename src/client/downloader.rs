@@ -7,7 +7,8 @@ pub struct SkillEntry {
     pub category: String,
     pub url: String,
     pub premium: bool,
-    //pub name: Option<String>,
+    // Lista de extensões que ativam a recomendação desta skill (ex: ["rs", "toml"])
+    pub triggers: Option<Vec<String>>,
 }
 
 #[derive(Deserialize, Serialize, Debug)]
