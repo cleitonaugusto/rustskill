@@ -1,6 +1,6 @@
+use console::style;
 use std::fs;
 use std::path::Path;
-use console::style;
 
 /// Instala a instrução da skill no diretório do Cursor com blindagem de diretórios e cabeçalho de proteção
 pub fn install_to_cursor(content: &str, file_name: &str, skill_name: &str) -> anyhow::Result<()> {
@@ -10,7 +10,8 @@ pub fn install_to_cursor(content: &str, file_name: &str, skill_name: &str) -> an
         println!(
             "{} {}",
             style("⚠️ ").yellow(),
-            style("Aviso: Nenhum manifesto de projeto (package.json/Cargo.toml) detectado.").yellow()
+            style("Aviso: Nenhum manifesto de projeto (package.json/Cargo.toml) detectado.")
+                .yellow()
         );
     }
 
@@ -18,7 +19,10 @@ pub fn install_to_cursor(content: &str, file_name: &str, skill_name: &str) -> an
     let rules_path = Path::new(".cursor").join("rules");
 
     if !rules_path.exists() {
-        println!("{} Estrutura .cursor/rules não detectada. Criando ambiente de vanguarda...", style("📁").cyan());
+        println!(
+            "{} Estrutura .cursor/rules não detectada. Criando ambiente de vanguarda...",
+            style("📁").cyan()
+        );
         fs::create_dir_all(&rules_path)?;
     }
 

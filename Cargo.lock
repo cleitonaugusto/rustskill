@@ -1646,7 +1646,7 @@ dependencies = [
 
 [[package]]
 name = "rustskill"
-version = "0.1.9"
+version = "0.3.0"
 dependencies = [
  "anyhow",
  "clap",
