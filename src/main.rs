@@ -74,14 +74,23 @@ async fn main() -> anyhow::Result<()> {
 
             match skill_entry {
                 Some(entry) => {
+                    // Carregamos a config aqui para ter o token disponível
+                    let cfg: Config = confy::load("rustskill", None).unwrap_or_default();
+
+                    // --- LÓGICA PREMIUM (Nós já temos isso, mantenha a validação de vanguarda) ---
                     if entry.premium {
-                        let cfg: Config = confy::load("rustskill", None)?;
-                        if cfg.token.is_none() {
-                            println!("{} Esta skill é {}! Use: {} login <token>",
-                                     style("❌").red(),
-                                     style("PREMIUM").yellow().bold(),
-                                     style("rustskill").bold());
-                            return Ok(());
+                        match &cfg.token {
+                            Some(token) => {
+                                println!("{} Validando acesso premium...", style("🔑").cyan());
+                                if !downloader::validate_token(token).await? {
+                                    println!("{} Token inválido ou expirado.", style("❌").red());
+                                    return Ok(());
+                                }
+                            },
+                            None => {
+                                println!("{} Skill Premium! Faça login primeiro.", style("❌").red());
+                                return Ok(());
+                            }
                         }
                     }
 
@@ -90,21 +99,20 @@ async fn main() -> anyhow::Result<()> {
                     pb.set_message(format!("Injetando inteligência: {}...", style(alias).cyan()));
                     pb.enable_steady_tick(Duration::from_millis(80));
 
-                    let skill_content = downloader::fetch_skill(&entry.url).await?;
+                    // --- AQUI ESTÁ A CORREÇÃO: Passamos o token como segundo argumento ---
+                    let skill_content = downloader::fetch_skill(&entry.id, cfg.token).await?;
                     pb.finish_and_clear();
 
                     installer::install_to_cursor(&skill_content.instruction, &skill_content.file_name, &skill_content.name)?;
 
                     let _ = track_telemetry(&skill_content.name).await;
-
                     println!("{} Skill {} instalada com sucesso!", style("✔").green(), style(&skill_content.name).bold());
                 },
                 None => {
-                    println!("{} Skill '{}' não encontrada no registro global.", style("❌").red(), alias);
+                    println!("{} Skill '{}' não encontrada.", style("❌").red(), alias);
                 }
             }
         }
-
         Commands::Audit => {
             println!("{} Analisando a estrutura profunda do projeto...", style("🔍").yellow());
 
@@ -119,7 +127,6 @@ async fn main() -> anyhow::Result<()> {
                 .into_iter()
                 .filter_entry(|e| {
                     let name = e.file_name().to_string_lossy();
-                    // Ignora diretórios que não agregam valor e pesam o scan
                     name != "target" && name != "node_modules" && name != ".git" && name != "dist"
                 })
                 .flatten()
@@ -138,7 +145,6 @@ async fn main() -> anyhow::Result<()> {
             if let Ok(entries) = fs::read_dir(".cursor/rules") {
                 for entry in entries.flatten() {
                     if let Some(name) = entry.file_name().to_str() {
-                        // Compara IDs normalizados (sem .mdc)
                         installed_skills.insert(name.replace(".mdc", ""));
                     }
                 }
@@ -153,7 +159,6 @@ async fn main() -> anyhow::Result<()> {
             for skill in registry {
                 let id_lower = skill.id.to_lowercase();
 
-                // Lógica de Ativação Contextual (DNA do projeto)
                 let is_needed = if id_lower.contains("rust") && extensions.contains("rs") { true }
                 else if id_lower.contains("react") && (extensions.contains("tsx") || extensions.contains("jsx")) { true }
                 else if id_lower.contains("sql") && extensions.contains("sql") { true }
@@ -162,7 +167,6 @@ async fn main() -> anyhow::Result<()> {
                 else { false };
 
                 if is_needed {
-                    // Normalização do ID para verificar se o arquivo existe (ex: rust/clean-code -> rust-clean-code)
                     let file_id = skill.id.replace("/", "-");
                     let status = if installed_skills.contains(&file_id) {
                         style("✅ Protegido").green().to_string()
@@ -202,9 +206,17 @@ async fn main() -> anyhow::Result<()> {
         }
 
         Commands::Login { token } => {
-            let cfg = Config { token: Some(token.clone()) };
-            confy::store("rustskill", None, cfg)?;
-            println!("{} Token autenticado! Acesso Premium liberado.", style("🔑").green());
+            println!("{} Verificando credenciais de vanguarda...", style("🔑").cyan());
+
+            if downloader::validate_token(&token).await? {
+                let cfg = Config { token: Some(token.clone()) };
+                confy::store("rustskill", None, cfg)?;
+                println!("{} Autenticação bem-sucedida! Acesso Premium liberado.", style("✅").green());
+            } else {
+                println!("{} Falha na autenticação. Verifique seu token em {}",
+                         style("❌").red(),
+                         style("https://rustskill.com").underlined());
+            }
         }
 
         Commands::Upgrade => {
