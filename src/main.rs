@@ -30,7 +30,10 @@ enum Commands {
     /// Instala uma skill usando o Alias (ex: rust/clean-code)
     Add { alias: String },
     /// Escaneia o projeto e sugere as skills de vanguarda necessárias
-    Audit,
+    Audit {
+        #[arg(long)]
+        fix: bool,
+    },
     /// Atualiza o rustskill para a versão mais recente
     Upgrade,
     /// Login com Token Premium para acessar skills restritas
@@ -119,20 +122,13 @@ async fn main() -> anyhow::Result<()> {
                         &skill_content.file_name,
                         &skill_content.name,
                     )?;
-
-                    let _ = track_telemetry(&skill_content.name).await;
-                    println!(
-                        "{} Skill {} instalada com sucesso!",
-                        style("✔").green(),
-                        style(&skill_content.name).bold()
-                    );
                 }
                 None => {
                     println!("{} Skill '{}' não encontrada.", style("❌").red(), alias);
                 }
             }
         }
-        Commands::Audit => {
+        Commands::Audit { fix } => {
             println!(
                 "{} Analisando ecossistemas Python, Go, Rust e Node...",
                 style("🔍").yellow()
@@ -146,18 +142,64 @@ async fn main() -> anyhow::Result<()> {
             let mut extensions = HashSet::new();
             let mut dependencies = HashSet::new();
 
-            // 1. Scan de Arquivos (Extensões)
+            // 1. Scan de Arquivos (Extensões & Raio-X de Código v0.4.0)
             for entry in WalkDir::new(".")
                 .into_iter()
                 .filter_entry(|e| {
                     let name = e.file_name().to_string_lossy();
-                    name != "target" && name != "node_modules" && name != ".git" && name != "venv"
+                    !["target", "node_modules", ".git", "venv", "dist", "build"]
+                        .contains(&name.as_ref())
                 })
                 .flatten()
             {
                 if entry.file_type().is_file() {
-                    if let Some(ext) = entry.path().extension().and_then(|s| s.to_str()) {
-                        extensions.insert(ext.to_lowercase());
+                    let path = entry.path();
+
+                    // Captura Extensão
+                    if let Some(ext) = path.extension().and_then(|s| s.to_str()) {
+                        let ext_lower = ext.to_lowercase();
+                        extensions.insert(ext_lower.clone());
+
+                        // RAIO-X: Se for arquivo de código, faz o Deep Scan de Imports
+                        if ["rs", "py", "go", "js", "ts", "tsx"].contains(&ext_lower.as_str()) {
+                            if let Ok(code) = fs::read_to_string(path) {
+                                for line in code.lines().take(100) {
+                                    // Analisa as primeiras 100 linhas (onde ficam os imports)
+                                    let line = line.trim();
+
+                                    // Padrão Python/JS/TS: import x ou from x import
+                                    if line.starts_with("import ") || line.starts_with("from ") {
+                                        let parts: Vec<&str> = line.split_whitespace().collect();
+                                        if parts.len() >= 2 {
+                                            let dep = parts[1]
+                                                .split('.')
+                                                .next()
+                                                .unwrap()
+                                                .replace([';', '"', '\''], "");
+                                            dependencies.insert(dep.to_lowercase());
+                                        }
+                                    }
+                                    // Padrão Rust: use x::y
+                                    else if line.starts_with("use ") {
+                                        if let Some(dep) = line.split_whitespace().nth(1) {
+                                            let dep =
+                                                dep.split("::").next().unwrap().replace(';', "");
+                                            dependencies.insert(dep.to_lowercase());
+                                        }
+                                    }
+                                    // Padrão Go: import "x"
+                                    else if line.starts_with("import \"") {
+                                        let dep = line.replace(
+                                            ['i', 'm', 'p', 'o', 'r', 't', ' ', '"', ';'],
+                                            "",
+                                        );
+                                        if let Some(short_name) = dep.split('/').last() {
+                                            dependencies.insert(short_name.to_lowercase());
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -245,16 +287,18 @@ async fn main() -> anyhow::Result<()> {
                 }
             }
 
+            // --- CORREÇÃO AQUI: Definimos o registry antes de usar no loop ---
             let registry = downloader::fetch_registry().await?;
+
             let mut table = Table::new();
             table.set_header(vec!["Categoria", "Skill Recomendada", "Motivo", "Status"]);
 
             let mut count_missing = 0;
-            for skill in registry {
+            // Agora o 'registry' existe e o loop abaixo vai funcionar
+            for skill in &registry {
                 let mut should_recommend = false;
                 let mut reason = String::new();
 
-                // Gatilho por Extensão (Cross-language)
                 let id_lower = skill.id.to_lowercase();
                 if id_lower.contains("rust") && extensions.contains("rs") {
                     should_recommend = true;
@@ -287,7 +331,7 @@ async fn main() -> anyhow::Result<()> {
                     };
 
                     table.add_row(vec![
-                        style(skill.category).magenta().to_string(),
+                        style(&skill.category).magenta().to_string(),
                         style(&skill.id).cyan().bold().to_string(),
                         style(reason).dim().to_string(),
                         status,
@@ -298,23 +342,96 @@ async fn main() -> anyhow::Result<()> {
             println!("\n{table}");
 
             if count_missing > 0 {
+                if *fix {
+                    println!(
+                        "\n{} Iniciando Auto-Cura de vanguarda...",
+                        style("🛠️").cyan()
+                    );
+                    // DEBUG: Vamos ver se as dependências ainda existem aqui
+                    println!(
+                        "{} Debug: {} extensões e {} dependências mapeadas.",
+                        style("ℹ").blue(),
+                        extensions.len(),
+                        dependencies.len()
+                    );
+
+                    let _ = fs::create_dir_all(".cursor/rules");
+                    let cfg: Config = confy::load("rustskill", None).unwrap_or_default();
+
+                    for skill in &registry {
+                        let file_id = skill.id.replace("/", "-");
+
+                        if installed_skills.contains(&file_id) {
+                            continue;
+                        }
+
+                        let mut should_install = false;
+                        let id_l = skill.id.to_lowercase();
+
+                        // 1. Checagem de Extensões
+                        if (id_l.contains("rust") && extensions.contains("rs"))
+                            || (id_l.contains("python") && extensions.contains("py"))
+                            || (id_l.contains("go") && extensions.contains("go"))
+                        {
+                            should_install = true;
+                        }
+
+                        // 2. Checagem de Triggers
+                        if !should_install {
+                            if let Some(triggers) = &skill.triggers {
+                                for t in triggers {
+                                    if dependencies.contains(&t.to_lowercase()) {
+                                        should_install = true;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+
+                        if should_install {
+                            println!("{} Baixando skill: {}...", style("⏳").blue(), skill.id);
+
+                            // Mudamos o 'if let Ok' por um 'match' para ver o erro real
+                            match downloader::fetch_skill(&skill.id, cfg.token.clone()).await {
+                                Ok(content) => {
+                                    if let Err(e) = installer::install_to_cursor(
+                                        &content.instruction,
+                                        &content.file_name,
+                                        &content.name,
+                                    ) {
+                                        println!(
+                                            "{} Erro ao instalar {}: {}",
+                                            style("❌").red(),
+                                            skill.id,
+                                            e
+                                        );
+                                    }
+                                }
+                                Err(e) => {
+                                    println!(
+                                        "{} Erro ao baixar {}: {}",
+                                        style("❌").red(),
+                                        skill.id,
+                                        e
+                                    );
+                                }
+                            }
+                        }
+                    }
+                    println!("\n{} Projeto blindado com sucesso!", style("✨").yellow());
+                }
+            } else {
                 println!(
-                    "\n{} Diagnóstico: {} vulnerabilidades de governança encontradas.",
+                    "\n{} Diagnóstico: {} vulnerabilidades encontradas.",
                     style("⚠️").yellow(),
                     count_missing
                 );
                 println!(
-                    "Rode {} para blindar seu projeto com as regras oficiais.",
-                    style("rustskill add <alias>").green()
-                );
-            } else {
-                println!(
-                    "\n{} Projeto 100% em conformidade com os padrões de vanguarda!",
-                    style("✨").yellow()
+                    "Rode {} para auto-cura imediata.",
+                    style("rustskill audit --fix").green()
                 );
             }
         }
-
         Commands::Info { alias } => {
             let registry = downloader::fetch_registry().await?;
             if let Some(skill) = registry.iter().find(|s| &s.id == alias) {
@@ -394,22 +511,4 @@ async fn main() -> anyhow::Result<()> {
         }
     }
     Ok(())
-}
-
-async fn track_telemetry(skill_name: &str) {
-    let client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(2))
-        .build()
-        .unwrap_or_default();
-
-    let _ = client
-        .post("https://api.rustskill.com/telemetry")
-        .json(&serde_json::json!({
-            "event": "skill_installed",
-            "skill": skill_name,
-            "platform": std::env::consts::OS,
-            "version": env!("CARGO_PKG_VERSION")
-        }))
-        .send()
-        .await;
 }

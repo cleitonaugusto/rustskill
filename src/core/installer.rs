@@ -1,53 +1,50 @@
 use console::style;
+use std::env;
 use std::fs;
-use std::path::Path;
 
-/// Instala a instrução da skill no diretório do Cursor com blindagem de diretórios e cabeçalho de proteção
+/// Instala a instrução da skill no diretório do Cursor com blindagem de diretórios
 pub fn install_to_cursor(content: &str, file_name: &str, skill_name: &str) -> anyhow::Result<()> {
-    // 1. Validação de Contexto (O "Norte" do projeto)
-    let current_dir = std::env::current_dir()?;
-    if !current_dir.join("package.json").exists() && !current_dir.join("Cargo.toml").exists() {
-        println!(
-            "{} {}",
-            style("⚠️ ").yellow(),
-            style("Aviso: Nenhum manifesto de projeto (package.json/Cargo.toml) detectado.")
-                .yellow()
-        );
-    }
+    let current_dir = env::current_dir()?;
+    let rules_path = current_dir.join(".cursor").join("rules");
 
-    // 2. Definição e Criação de Ambiente (A "Magia" da Automação)
-    let rules_path = Path::new(".cursor").join("rules");
-
+    // 2. Criação Robusta: Garante que a estrutura existe antes de gravar
     if !rules_path.exists() {
-        println!(
-            "{} Estrutura .cursor/rules não detectada. Criando ambiente de vanguarda...",
-            style("📁").cyan()
-        );
         fs::create_dir_all(&rules_path)?;
     }
 
-    // 3. SEGURANÇA: Sanitizar o file_name (Evita Path Traversal)
-    let safe_file_name = Path::new(file_name)
-        .file_name()
-        .ok_or_else(|| anyhow::anyhow!("Nome de arquivo inválido na definição da skill"))?;
+    let mut safe_name = if file_name.trim().is_empty() || file_name == "null" {
+        skill_name.replace("/", "-").to_lowercase()
+    } else {
+        file_name.to_lowercase()
+    };
 
-    let full_path = rules_path.join(safe_file_name);
+    // Remove caracteres proibidos em sistemas de arquivos
+    safe_name = safe_name.replace(['/', '\\', ':', '*', '?', '"', '<', '>', '|'], "-");
 
-    // 4. Cabeçalho de Gerenciamento (Identidade RustSkill)
+    // Garante a extensão .mdc
+    if !safe_name.ends_with(".mdc") {
+        safe_name.push_str(".mdc");
+    }
+
+    let full_path = rules_path.join(&safe_name);
+
     let managed_content = format!(
-        "# Gerenciado pelo RustSkill - Skill: {}\n# Modificações manuais podem ser sobrescritas em atualizações.\n\n{}",
-        skill_name,
-        content
+        "---\ndescription: Skill gerenciada pelo RustSkill: {}\nglobs: [\"**/*\"]\n---\n\n{}",
+        skill_name, content
     );
 
-    // 5. Gravação Final da Inteligência
     fs::write(&full_path, managed_content)?;
 
+    // 6. LOG DE CONFIRMAÇÃO OBRIGATÓRIO (O seu Debug visual)
     println!(
-        "{} Skill '{}' blindada e registrada em: {}",
-        style("📂").blue(),
-        style(skill_name).bold(),
-        style(full_path.display()).dim()
+        "{} Skill '{}' injetada com sucesso!",
+        style("🚀").blue(),
+        style(skill_name).cyan()
+    );
+    println!(
+        "   {} Caminho: {}",
+        style("↳").dim(),
+        style(full_path.display()).dim().italic()
     );
 
     Ok(())
