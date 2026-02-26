@@ -4,6 +4,7 @@ use comfy_table::Table;
 use indicatif::{ProgressBar, ProgressStyle};
 use std::time::Duration;
 use std::collections::HashSet;
+use std::fs;
 use serde::{Serialize, Deserialize};
 use walkdir::WalkDir;
 
@@ -105,46 +106,86 @@ async fn main() -> anyhow::Result<()> {
         }
 
         Commands::Audit => {
-            println!("{} Analisando DNA do projeto (varredura profunda)...", style("🧬").yellow());
+            println!("{} Analisando a estrutura profunda do projeto...", style("🔍").yellow());
 
-            // 1. Scan de extensões RECURSIVO
+            let pb = ProgressBar::new_spinner();
+            pb.set_style(ProgressStyle::default_spinner().template("{spinner:.blue} {msg}")?);
+            pb.set_message("Escaneando diretórios...");
+            pb.enable_steady_tick(Duration::from_millis(80));
+
+            // 1. Scan Recursivo (Otimizado com WalkDir)
             let mut extensions = HashSet::new();
-            for entry in WalkDir::new(".").into_iter().filter_map(|e| e.ok()) {
-                if let Some(ext) = entry.path().extension().and_then(|s| s.to_str()) {
-                    extensions.insert(ext.to_lowercase());
+            for entry in WalkDir::new(".")
+                .into_iter()
+                .filter_entry(|e| {
+                    let name = e.file_name().to_string_lossy();
+                    // Ignora diretórios que não agregam valor e pesam o scan
+                    name != "target" && name != "node_modules" && name != ".git" && name != "dist"
+                })
+                .flatten()
+            {
+                if entry.file_type().is_file() {
+                    if let Some(ext) = entry.path().extension().and_then(|s| s.to_str()) {
+                        extensions.insert(ext.to_lowercase());
+                    }
                 }
             }
-            println!("{} Extensões detectadas no projeto: {:?}", style("🔍").dim(), extensions);
 
-            // 2. Buscar Registry
+            pb.finish_and_clear();
+
+            // 2. Mapeamento de Skills Instaladas (.cursor/rules)
+            let mut installed_skills = HashSet::new();
+            if let Ok(entries) = fs::read_dir(".cursor/rules") {
+                for entry in entries.flatten() {
+                    if let Some(name) = entry.file_name().to_str() {
+                        // Compara IDs normalizados (sem .mdc)
+                        installed_skills.insert(name.replace(".mdc", ""));
+                    }
+                }
+            }
+
+            // 3. Busca o Registry e Processa Diagnóstico
             let registry = downloader::fetch_registry().await?;
             let mut table = Table::new();
             table.set_header(vec!["Categoria", "Skill Recomendada", "Status"]);
 
-            let mut count = 0;
+            let mut count_missing = 0;
             for skill in registry {
-                // 3. Lógica de recomendação DINÂMICA baseada em 'triggers'
-                let is_needed = match &skill.triggers {
-                    Some(triggers) => triggers.iter().any(|t| extensions.contains(t.as_str())),
-                    None => false, // Se a skill não tem triggers, não é recomendada automaticamente
-                };
+                let id_lower = skill.id.to_lowercase();
+
+                // Lógica de Ativação Contextual (DNA do projeto)
+                let is_needed = if id_lower.contains("rust") && extensions.contains("rs") { true }
+                else if id_lower.contains("react") && (extensions.contains("tsx") || extensions.contains("jsx")) { true }
+                else if id_lower.contains("sql") && extensions.contains("sql") { true }
+                else if id_lower.contains("security") && (extensions.contains("env") || extensions.contains("js") || extensions.contains("ts")) { true }
+                else if id_lower.contains("clean-arch") && (extensions.contains("rs") || extensions.contains("ts")) { true }
+                else { false };
 
                 if is_needed {
-                    count += 1;
+                    // Normalização do ID para verificar se o arquivo existe (ex: rust/clean-code -> rust-clean-code)
+                    let file_id = skill.id.replace("/", "-");
+                    let status = if installed_skills.contains(&file_id) {
+                        style("✅ Protegido").green().to_string()
+                    } else {
+                        count_missing += 1;
+                        style("❌ Ausente").red().to_string()
+                    };
+
                     table.add_row(vec![
                         style(skill.category).magenta().to_string(),
-                        style(skill.id).cyan().bold().to_string(),
-                        style("❌ Ausente").red().to_string()
+                        style(&skill.id).cyan().bold().to_string(),
+                        status
                     ]);
                 }
             }
 
-            if count > 0 {
-                println!("\n{table}");
-                println!("\n{} Foram sugeridas {} skills para elevar o nível deste projeto.", style("💡").blue(), count);
-                println!("Use {} para instalar qualquer uma delas.", style("rustskill add <alias>").green());
+            println!("\n{table}");
+
+            if count_missing > 0 {
+                println!("\n{} Diagnóstico: {} skills recomendadas ainda não instaladas.", style("⚠️").yellow(), count_missing);
+                println!("Rode {} para blindar seu projeto.", style("rustskill add <alias>").green());
             } else {
-                println!("{} Nenhuma skill adicional recomendada para o contexto atual.", style("✔").green());
+                println!("\n{} Parabéns! O seu projeto está com a cobertura de vanguarda completa.", style("✨").yellow());
             }
         }
 
