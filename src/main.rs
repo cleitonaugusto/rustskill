@@ -297,27 +297,33 @@ async fn main() -> anyhow::Result<()> {
             // Agora o 'registry' existe e o loop abaixo vai funcionar
             for skill in &registry {
                 let mut should_recommend = false;
-                let mut reason = String::new();
+                let mut reasons = Vec::new();
 
                 let id_lower = skill.id.to_lowercase();
-                if id_lower.contains("rust") && extensions.contains("rs") {
-                    should_recommend = true;
-                    reason = "Arquivos .rs detectados".to_string();
-                } else if id_lower.contains("python") && extensions.contains("py") {
-                    should_recommend = true;
-                    reason = "Arquivos .py detectados".to_string();
-                } else if id_lower.contains("go") && extensions.contains("go") {
-                    should_recommend = true;
-                    reason = "Arquivos .go detectados".to_string();
-                }
 
+                // 1. Checagem por Triggers Específicos
                 if let Some(triggers) = &skill.triggers {
                     for trigger in triggers {
-                        if dependencies.contains(&trigger.to_lowercase()) {
+                        let t_lower = trigger.to_lowercase();
+                        // Checa se a dependência existe ou se um arquivo com esse nome/extensão existe
+                        if dependencies.contains(&t_lower) || extensions.contains(&t_lower) {
                             should_recommend = true;
-                            reason = format!("Dependência '{}' detectada", trigger);
-                            break;
+                            reasons.push(format!("Gatilho '{}' detectado", trigger));
                         }
+                    }
+                }
+
+                // 2. Checagem por Ecossistema
+                if !should_recommend {
+                    if id_lower.contains("rust") && extensions.contains("rs") {
+                        should_recommend = true;
+                        reasons.push("Ecossistema Rust detectado".to_string());
+                    } else if id_lower.contains("python") && extensions.contains("py") {
+                        should_recommend = true;
+                        reasons.push("Ecossistema Python detectado".to_string());
+                    } else if id_lower.contains("go") && extensions.contains("go") {
+                        should_recommend = true;
+                        reasons.push("Ecossistema Go detectado".to_string());
                     }
                 }
 
@@ -333,7 +339,7 @@ async fn main() -> anyhow::Result<()> {
                     table.add_row(vec![
                         style(&skill.category).magenta().to_string(),
                         style(&skill.id).cyan().bold().to_string(),
-                        style(reason).dim().to_string(),
+                        style(reasons.join(", ")).dim().to_string(),
                         status,
                     ]);
                 }
@@ -347,7 +353,7 @@ async fn main() -> anyhow::Result<()> {
                         "\n{} Iniciando Auto-Cura de vanguarda...",
                         style("🛠️").cyan()
                     );
-                    // DEBUG: Vamos ver se as dependências ainda existem aqui
+
                     println!(
                         "{} Debug: {} extensões e {} dependências mapeadas.",
                         style("ℹ").blue(),
@@ -391,7 +397,6 @@ async fn main() -> anyhow::Result<()> {
                         if should_install {
                             println!("{} Baixando skill: {}...", style("⏳").blue(), skill.id);
 
-                            // Mudamos o 'if let Ok' por um 'match' para ver o erro real
                             match downloader::fetch_skill(&skill.id, cfg.token.clone()).await {
                                 Ok(content) => {
                                     if let Err(e) = installer::install_to_cursor(

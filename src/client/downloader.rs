@@ -21,7 +21,7 @@ pub struct SkillPayload {
 
 const BASE_REGISTRY_URL: &str =
     "https://raw.githubusercontent.com/cleitonaugusto/rustskill-registry/main/registry.json";
-const API_BASE_URL: &str = "https://api.rustskill.com/v1";
+const API_BASE_URL: &str = "http://api.rustskill.com:8080/v1";
 
 pub async fn validate_token(token: &str) -> anyhow::Result<bool> {
     let client = reqwest::Client::builder()
