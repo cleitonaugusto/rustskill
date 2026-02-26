@@ -114,23 +114,19 @@ async fn main() -> anyhow::Result<()> {
             }
         }
         Commands::Audit => {
-            println!("{} Analisando a estrutura profunda do projeto...", style("🔍").yellow());
+            println!("{} Analisando a estrutura profunda e manifestos...", style("🔍").yellow());
 
             let pb = ProgressBar::new_spinner();
             pb.set_style(ProgressStyle::default_spinner().template("{spinner:.blue} {msg}")?);
-            pb.set_message("Escaneando diretórios...");
+            pb.set_message("Escaneando DNA do projeto...");
             pb.enable_steady_tick(Duration::from_millis(80));
 
-            // 1. Scan Recursivo (Otimizado com WalkDir)
+            // 1. Scan de Arquivos (O que já temos)
             let mut extensions = HashSet::new();
-            for entry in WalkDir::new(".")
-                .into_iter()
-                .filter_entry(|e| {
-                    let name = e.file_name().to_string_lossy();
-                    name != "target" && name != "node_modules" && name != ".git" && name != "dist"
-                })
-                .flatten()
-            {
+            for entry in WalkDir::new(".").into_iter().filter_entry(|e| {
+                let name = e.file_name().to_string_lossy();
+                name != "target" && name != "node_modules" && name != ".git"
+            }).flatten() {
                 if entry.file_type().is_file() {
                     if let Some(ext) = entry.path().extension().and_then(|s| s.to_str()) {
                         extensions.insert(ext.to_lowercase());
@@ -138,9 +134,44 @@ async fn main() -> anyhow::Result<()> {
                 }
             }
 
+            // 2. EVOLUÇÃO V0.2.0: Scan de Dependências Híbrido (Rust & JS/TS)
+            let mut dependencies = HashSet::new();
+
+            // --- SCAN RUST (Cargo.toml) ---
+            if let Ok(cargo_content) = fs::read_to_string("Cargo.toml") {
+                if let Ok(cargo_value) = cargo_content.parse::<toml::Value>() {
+                    if let Some(deps) = cargo_value.get("dependencies").and_then(|d| d.as_table()) {
+                        for dep_name in deps.keys() {
+                            dependencies.insert(dep_name.to_lowercase());
+                        }
+                    }
+                    if let Some(dev_deps) = cargo_value.get("dev-dependencies").and_then(|d| d.as_table()) {
+                        for dep_name in dev_deps.keys() {
+                            dependencies.insert(dep_name.to_lowercase());
+                        }
+                    }
+                }
+            }
+
+            // --- SCAN JAVASCRIPT/TYPESCRIPT (package.json) ---
+            if let Ok(pkg_content) = fs::read_to_string("package.json") {
+                // Usamos o turbofish ::<serde_json::Value> para o Rust saber o tipo exato
+                if let Ok(pkg_value) = serde_json::from_str::<serde_json::Value>(&pkg_content) {
+                    let target_keys = ["dependencies", "devDependencies"];
+
+                    for key in target_keys {
+                        if let Some(deps) = pkg_value.get(key).and_then(|d| d.as_object()) {
+                            for (dep_name, _) in deps {
+                                dependencies.insert(dep_name.to_lowercase());
+                            }
+                        }
+                    }
+                }
+            }
+
             pb.finish_and_clear();
 
-            // 2. Mapeamento de Skills Instaladas (.cursor/rules)
+            // 3. Mapeamento de Skills Instaladas
             let mut installed_skills = HashSet::new();
             if let Ok(entries) = fs::read_dir(".cursor/rules") {
                 for entry in entries.flatten() {
@@ -150,23 +181,34 @@ async fn main() -> anyhow::Result<()> {
                 }
             }
 
-            // 3. Busca o Registry e Processa Diagnóstico
             let registry = downloader::fetch_registry().await?;
             let mut table = Table::new();
-            table.set_header(vec!["Categoria", "Skill Recomendada", "Status"]);
+            table.set_header(vec!["Categoria", "Skill Recomendada", "Motivo", "Status"]);
 
             let mut count_missing = 0;
             for skill in registry {
+                let mut should_recommend = false;
+                let mut reason = String::new();
+
+                // Gatilho por Extensão (Legado)
                 let id_lower = skill.id.to_lowercase();
+                if id_lower.contains("rust") && extensions.contains("rs") {
+                    should_recommend = true;
+                    reason = "Arquivos .rs detectados".to_string();
+                }
 
-                let is_needed = if id_lower.contains("rust") && extensions.contains("rs") { true }
-                else if id_lower.contains("react") && (extensions.contains("tsx") || extensions.contains("jsx")) { true }
-                else if id_lower.contains("sql") && extensions.contains("sql") { true }
-                else if id_lower.contains("security") && (extensions.contains("env") || extensions.contains("js") || extensions.contains("ts")) { true }
-                else if id_lower.contains("clean-arch") && (extensions.contains("rs") || extensions.contains("ts")) { true }
-                else { false };
+                // Gatilho por Dependência (Vanguarda v0.2.0)
+                if let Some(triggers) = &skill.triggers {
+                    for trigger in triggers {
+                        if dependencies.contains(&trigger.to_lowercase()) {
+                            should_recommend = true;
+                            reason = format!("Dependência '{}' detectada", trigger);
+                            break;
+                        }
+                    }
+                }
 
-                if is_needed {
+                if should_recommend {
                     let file_id = skill.id.replace("/", "-");
                     let status = if installed_skills.contains(&file_id) {
                         style("✅ Protegido").green().to_string()
@@ -178,6 +220,7 @@ async fn main() -> anyhow::Result<()> {
                     table.add_row(vec![
                         style(skill.category).magenta().to_string(),
                         style(&skill.id).cyan().bold().to_string(),
+                        style(reason).dim().to_string(),
                         status
                     ]);
                 }
@@ -186,10 +229,10 @@ async fn main() -> anyhow::Result<()> {
             println!("\n{table}");
 
             if count_missing > 0 {
-                println!("\n{} Diagnóstico: {} skills recomendadas ainda não instaladas.", style("⚠️").yellow(), count_missing);
-                println!("Rode {} para blindar seu projeto.", style("rustskill add <alias>").green());
+                println!("\n{} Diagnóstico: {} vulnerabilidades de governança encontradas.", style("⚠️").yellow(), count_missing);
+                println!("Rode {} para blindar seu projeto com as regras oficiais.", style("rustskill add <alias>").green());
             } else {
-                println!("\n{} Parabéns! O seu projeto está com a cobertura de vanguarda completa.", style("✨").yellow());
+                println!("\n{} Projeto 100% em conformidade com os padrões de vanguarda!", style("✨").yellow());
             }
         }
 

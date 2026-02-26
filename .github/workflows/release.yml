@@ -3,20 +3,20 @@ name: Release Management
 on:
   push:
     tags:
-      - 'v*' # Dispara em v0.1.2, v0.1.6, v1.0.0, etc.
+      - 'v*'
 
 permissions:
-  contents: write # Essencial para criar a Release e subir os binários
+  contents: write
 
 jobs:
   build:
     name: Build for ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
-      fail-fast: false # Se um SO falhar (ex: Mac), ele ainda termina o Windows e Linux
+      fail-fast: false
       matrix:
         include:
-          - os: ubuntu-20.04  # <--- Compatibilidade garantida para Linux mais antigos
+          - os: ubuntu-20.04
             artifact_name: rustskill
             asset_name: rustskill-linux-x86_64
           - os: windows-latest
@@ -32,6 +32,18 @@ jobs:
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Cargo Registry
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+      # ---------------------------------------------------
 
       - name: Build Release
         run: cargo build --release --locked

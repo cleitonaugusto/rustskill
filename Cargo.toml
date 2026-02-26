@@ -34,3 +34,4 @@ self_update = { version = "0.41", default-features = false, features = [
     "compression-zip-deflate",
     "rustls"
 ] }
+toml = "0.8.23"
